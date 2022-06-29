@@ -1,0 +1,53 @@
+
+function exportRangeToPdf() {
+
+  const ssid = "ISI_SSID"
+  const gid = 0 //default 0
+  const sheetName = "ISI_NAMA_SHEET"
+
+  var spreadsheet = SpreadsheetApp.openById(ssid)
+  var sheet = spreadsheet.getSheetByName(sheetName)
+
+  var exportRange = "A1:AH73"; // Range in anotation
+  var urlString = 'export?exportFormat=pdf&format=pdf' +
+    '&gid=' + gid + '&id=' + ssid +
+    '&range=' + exportRange +
+    '&size=Folio' +     // paper size
+    '&portrait=true';   // orientation, false for landscape
+  // See https://webapps.stackexchange.com/questions/130654/all-google-docs-url-parameters-functions-commands for more url parameters
+  var exportUrl = spreadsheet.getUrl().replace(/edit.*$/, urlString);
+
+  var options = {
+    headers: {
+      'Authorization': 'Bearer ' + ScriptApp.getOAuthToken(),
+    },
+    muteHttpExceptions: true
+  }
+  var response = UrlFetchApp.fetch(exportUrl, options);
+
+  if (response.getResponseCode() !== 200) {
+    Logger.log("Error exporting Sheet to PDF!  Response Code: " + response.getResponseCode());
+    return;
+  }
+
+  var blob = response.getBlob();
+  var timestamp = new Date().getTime() / 1000;
+  // set name to spreadsheet_sheet_range_timestamp.pdf
+  blob.setName(spreadsheet.getName() + '_' + sheet.getSheetName() + '_' + exportRange + '_' + parseInt(timestamp) + '.pdf');
+
+  // isi folder name parent
+  var folderName = 'SHARING CODE DATABASE';
+  // Create the PDF file in the specific folder
+  let file = DriveApp.getFoldersByName(folderName).next().createFile(blob);
+
+  let file_id = file.getId()
+  let file_url = file.getUrl()
+  let file_download = file.getDownloadUrl()
+
+  let teks = "Berhasil membuat pdf.\nFile ID : " + file_id + "\nURL Vie : " + file_url + "\nURL Download : " + file_download
+
+  Logger.log(teks)
+  bot.tg.callApi("sendDocument", { chat_id: adminbot, document: blob, caption: teks })
+
+  // }
+}
