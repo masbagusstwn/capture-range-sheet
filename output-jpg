@@ -1,0 +1,96 @@
+
+function SelectedRangeToImage() {
+  var slide = RangeToSlides();
+  var slideId = slide.getId();
+  var images = [];
+  for (var x = 0; x < slide.getSlides().length; x++) {
+    var image = SlidesToImage(slide.getName() + x, slideId, slide.getSlides()[x].getObjectId());
+    images.push(image);
+  }
+
+  let hasil = "Your images :\n\n"
+  for (var i = 0; i < images.length; i++) {
+    let noUrut = i + 1
+    hasil += noUrut + ". Url : " + images[i].getUrl() + "\nName : " + images[i].getName() + "\n\n"
+  }
+
+  Logger.log(hasil)
+  tg.callApi("sendMessage", { chat_id: adminbot, text: hasil })
+}
+
+function RangeToSlides() {
+  
+  var ssid = "ISI_SSID_SHEET"
+  var sheetName = "ISI_NAMASHEET"
+  var ss = SpreadsheetApp.openById(ssid).getSheetByName(sheetName);
+  var range = ss.getRange("A1:D10"); // A1Notation
+
+  var rangeValues = range.getDisplayValues();
+  var rangeHorizontalAlignments = range.getHorizontalAlignments()
+  var rangeBackgrounds = range.getBackgrounds();
+  // var rangeFontWeights = range.getFontWeights();
+
+
+  // var sl = SlidesApp.create("ExportToImage" + new Date());
+  // slide Url => https://docs.google.com/presentation/d/SLIDE_ID/edit#slide=id.p
+  let slideId = "ISI_SLIDE_ID"
+  let sl = SlidesApp.openById(slideId)
+  var slide = sl.getSlides()[0]; // get slide ke - 1
+
+  //Create table with size of the range
+  var table = slide.insertTable(rangeValues.length, rangeValues[0].length);
+  for (var x = 0; x < rangeValues.length; x++) {
+    for (var y = 0; y < rangeValues[x].length; y++) {
+      var cell = table.getCell(x, y);
+      cell.getText().setText(rangeValues[x][y]); //Set text
+      cell.getFill().setSolidFill(rangeBackgrounds[x][y]); //Set background
+      // cell.getText().getTextStyle().setBold(rangeFontWeights[x][y] == "bold" ? true : false); //Set text formatting
+      var alignment;
+      switch (rangeHorizontalAlignments[x][y]) {
+        case "general-left":
+          alignment = SlidesApp.ParagraphAlignment.START;
+          break;
+        case "general-right":
+          alignment = SlidesApp.ParagraphAlignment.END;
+          break;
+        case "center":
+          alignment = SlidesApp.ParagraphAlignment.CENTER;
+          break;
+      }
+      // cell.getText().getParagraphStyle().setParagraphAlignment(alignment); //Set text alignment
+    }
+  }
+  sl.saveAndClose();
+  return sl;
+}
+
+function SlidesToImage(name, presentationId, slideId) {
+  var url = "https://slides.googleapis.com/v1/presentations/" + presentationId + "/pages/" + slideId + "/thumbnail";
+  var options = {
+    headers: {
+      Authorization: 'Bearer ' + ScriptApp.getOAuthToken()
+    }
+  };
+  var response = UrlFetchApp.fetch(url, options);
+  var responseJson = JSON.parse(response.getContentText());
+  var imageurl = responseJson.contentUrl;
+  var imageResponse = UrlFetchApp.fetch(imageurl, options);
+  var blob = imageResponse.getBlob();
+  blob.setName(name);
+  
+  // Tentukan folder parent
+  var folderName = 'NAMA_FOLDER';
+  // Create the PDF file in the specific folder
+  let resultingFile = DriveApp.getFoldersByName(folderName).next().createFile(blob);
+
+  let file_id = resultingFile.getId()
+  let file_url = resultingFile.getUrl()
+  let file_download = resultingFile.getDownloadUrl()
+
+  let teks = "Berhasil membuat Image.\nFile ID : " + file_id + "\nURL Vie : " + file_url + "\nURL Download : " + file_download
+
+  Logger.log(teks)
+  bot.tg.callApi("sendPhoto", { chat_id: ID_KAMU, photo: blob, caption: teks })
+
+  return resultingFile;
+}
